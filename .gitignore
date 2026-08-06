@@ -1,0 +1,46 @@
+### Azure CLI / PowerShell ###
+# Contextos y credenciales guardadas localmente
+.azure/
+*.PublishSettings
+*.publishsettings
+
+# Salidas de comandos que a veces guardas para revisar (pueden traer IDs, keys, etc.)
+*.output.json
+*output.txt
+*-output.log
+
+# Historial de PowerShell
+PSReadLine/
+ConsoleHost_history.txt
+
+### Variables y secretos ###
+.env
+.env.local
+*.env
+secrets.json
+*credentials*.json
+
+### Terraform / Bicep ###
+*.tfstate
+*.tfstate.backup
+.terraform/
+*.bicep.json
+
+### Sistema Operativo ###
+.DS_Store
+Thumbs.db
+desktop.ini
+
+### VSCode ###
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+### Logs generales ###
+*.log
+npm-debug.log*
+
+### Archivos temporales ###
+*.tmp
+*.bak
+*~
