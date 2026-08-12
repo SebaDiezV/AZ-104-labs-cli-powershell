@@ -1,0 +1,51 @@
+##Conectando a Azure a través de CLI
+az login
+
+##Crear usuario en Microsoft Entra ID
+#Para este paso se crea una variable de entorno para almacenar la contraseña del usuario que debe ser ejecutada antes de crear el usuario
+$env:AZ104_USER1_PASSWORD = '<contraseña>'
+az ad user create `
+    --display-name 'az104-user1' `
+    --user-principal-name 'az-104-user1@sdiezaz104labshotmail.onmicrosoft.com' `
+    --password '$env:AZ104_USER1_PASSWORD' `
+    --force-change-password-next-sign-in true `
+
+#Actualizar información de usuario con az rest
+#Armar el cuerpo de la solicitud PATCH para actualizar la información del usuario
+$body = "{'jobTitle': 'Administrador de TI', 'department': 'TI', 'accountEnabled': true, 'usageLocation': 'US'}"
+#Ejecutar la solicitud PATCH para actualizar la información del usuario
+az rest --method PATCH --url "https://graph.microsoft.com/v1.0/users/az-104-user1@sdiezaz104labshotmail.onmicrosoft.com" --headers "Content-Type=application/json" --body $body
+
+#Invitar a usuario externo a Microsoft Entra ID
+$body_invite = "{'invitedUserEmailAddress': 'external-user@company.com', 'inviteRedirectUrl': 'https://aka.ms/azureadinviteme', 'sendInvitationMessage': true, 'jobTitle': 'Administrador de TI', 'department': 'TI', 'usageLocation': 'US'}"
+az rest --method POST --url "https://graph.microsoft.com/v1.0/invitations" --headers "Content-Type=application/json" --body $body_invite
+
+## Crear un grupo de seguridad en Microsoft Entra ID
+az ad group create `
+    --display-name 'IT Lab Administrators' `
+    --mail-nickname 'it-lab-admins' `
+    --description 'Grupo de administradores del laboratorio de TI'
+
+#Añadir usuarios al grupo de seguridad
+#Crear la variables con los id de los usuarios que se van a añadir al grupo de seguridad
+$user1_id = az ad user show --id 'az-104-user1@sdiezaz104labshotmail.onmicrosoft.com' --query id -o tsv
+$extuser1_id = az ad user show --id 'external-user_company.com#EXT#@sdiezaz104labshotmail.onmicrosoft.com' --query id -o tsv
+
+#Añadir los usuarios al grupo de seguridad
+az ad group member add `
+    --group 'IT Lab Administrators' `
+    --member-id $user1_id
+
+az ad group member add `
+    --group 'IT Lab Administrators' `
+    --member-id $extuser1_id
+
+##PASO EXTRA: Agregar owner al grupo de seguridad
+#Crear la variable con el id del usuario que se va a añadir como owner del grupo de seguridad, se puede reutilizar la variable anterior si el owner es uno de los miembros del grupo
+
+az ad group owner add `
+    --group 'IT Lab Administrators' `
+    --owner-object-id $user1_id
+
+
+
