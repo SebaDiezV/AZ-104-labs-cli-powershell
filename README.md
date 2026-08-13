@@ -54,7 +54,7 @@ az-104-labs-cli-powershell/
 
 | Lab | CLI | PowerShell | Notas |
 |-----|-----|------------|-------|
-| 01 - Entra ID Identities | ⬜ | ⬜ | |
+| 01 - Entra ID Identities | ✅ | ✅ | |
 | 02a - Subscriptions & RBAC | ⬜ | ⬜ | |
 | 02b - Gobernanza via Azure | ⬜ | ⬜ | |
 | 03 - ARM Templates | ⬜ | ⬜ | |
