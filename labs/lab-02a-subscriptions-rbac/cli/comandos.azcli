@@ -1,0 +1,41 @@
+##Conectando a Azure a través de CLI
+az login
+
+##Crear Management Group
+az account management-group create --name 'az104-mg1' --display-name 'az104-mg1'
+
+#Verificar que se creó el Management Group
+az account management-group show --name 'az104-mg1'
+
+##Crear grupo Helpdesk
+az ad group create `
+    --display-name 'Helpdesk' `
+    --mail-nickname 'helpdesk' `
+    --description 'Grupo Helpdesk'
+
+##Asignar rol integrado de Azure a grupo Helpdesk
+#Guardar id de grupo en una variable
+$helpdesk_id = az ad group show --group 'helpdesk' --query 'id' -o tsv
+
+#Guardar id de Management group en una variable
+$mg_az = az account management-group show --name 'az104-mg1' --query 'id' -o tsv
+
+#Identificar el rol asignado que se otorgará al grupo Helpdesk, en este caso Virtual Machine Contributor, para ver todos los grupos ejecutar la siguiente línea de comando
+az role definition list --query "[].{name:name, roleType:roleType, roleName:roleName}" --output tsv
+
+#Para ver la definición del rol especifico
+az role definition list --name 'Virtual Machine Contributor'
+
+#Asignamos el rol de Virtual Machine Contributor al grupo Helpdesk
+az role assignment create --assignee $helpdesk_id --role 'Virtual Machine Contributor' --scope $mg_az
+
+#Verificar asignación
+az role assignment list --assignee $helpdesk_id --scope $mg_az
+
+##Crear un rol de RBAC personalizado
+#Se creará el rol de Reader Support
+#Se crea un archivo JSON independiente se dejará entre los archivos la configuración del JSON
+az role definition create --role-definition <La ruta de tu archivo JSON>\ReaderSupportRole.json
+
+##Supervisar las asignaciones de roles con el registro de actividad
+az monitor activity-log list --namespace "Microsoft.Authorization" --start-time 2026-08-12 --offset 7d --query '[].{authorization:authorization, caller:caller, eventTimestamp:eventTimestamp, properties:properties}'
