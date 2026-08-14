@@ -1,0 +1,21 @@
+{
+  "Name": "PSReader",
+  "Id": "acdd72a7-3385-48ef-bd42-f606fba81ae7",
+  "IsCustom": false,
+  "Description": "View all resources, but does not allow you to make any changes.",
+  "AssignableScopes": [
+    "<Id del management group>"
+  ],
+  "Permissions": [
+    {
+      "Actions": [
+        "*/read", 
+        "Microsoft.Support/*"], 
+      "NotActions": "",
+      "DataActions": "",
+      "NotDataActions": "",
+      "Condition": null,
+      "ConditionVersion": null
+    }
+  ]
+}
