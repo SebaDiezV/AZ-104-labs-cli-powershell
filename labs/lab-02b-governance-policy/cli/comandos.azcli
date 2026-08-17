@@ -1,0 +1,94 @@
+##Conectando a Azure a través de CLI
+az login
+
+##Crear un grupo de recursos con tags asignados
+az group create --name az104-rg2 --location eastus --tags CostCenter=000
+
+##Aplicar tags mediante una directiva
+#Guardar id de la directiva para requerir tags en una variable
+$policyID = az policy definition list --query "[?displayName== 'Require a tag and its value on resources'].id | [0]" -o tsv
+#Obtener solo el GUID
+$policyGUID =$policyID -replace '.*/', ''
+
+#Guardar id del grupo de recursos creado con anterioridad para utilizar como scope para la directiva
+$rgID = az group show --name az104-rg2 --query 'id' -o tsv
+
+#habilitar Resource Provider para PolicyInsights
+az provider register --namespace Microsoft.PolicyInsights
+
+#asignar la directiva al grupo de recursos
+az policy assignment create `
+    --name 'Require Cost Center tag and its value on resources' `
+    --policy $policyGUID `
+    --scope $rgID `
+    --location 'eastus' `
+    --params '{"tagName":{"value":CostCenter},"tagValue":{"value":"000"}}'
+
+#habilitar Resource Provider para Storage
+az provider register --namespace Microsoft.Storage
+
+#crear un Storage Account para que falle al no tener tags
+az storage account create `
+    --name 'teststorageacouttag' `
+    --resource-group 'az104-rg2' `
+    --location 'eastus' `
+    --sku 'Standard_LRS'
+#El error que indica es el siguiente:
+#    "policyDefinitionName": "1e30110a-5ceb-460c-a204-c1c3969c6d62",
+#    "policyDefinitionDisplayName": "Require a tag and its value on resources",
+#    "policyDefinitionVersion": "1.0.1",
+#    "policyDefinitionEffect": "deny"
+
+##Aplicar tag mediante una directiva
+#eliminar política actual que requiere el tag
+az policy assignment delete --name 'Require Cost Center tag and its value on resources' --scope $rgID
+
+#guardar id de la directiva Inherit a tag from the resource group if missing en una variable
+$policyInheritID = az policy definition list --query "[?displayName== 'Inherit a tag from the resource group if missing'].id | [0]" -o tsv
+#obtener solo el GUID
+$policyInheritGUID =$policyInheritID -replace '.*/', ''
+
+#crear la política para heredar tag
+az policy assignment create `
+    --name 'Inherit-Env-Tag' `
+    --display-name 'Inherit the Cost Center tag and its value 000 from the resource group if missing' `
+    --policy $policyInheritGUID `
+    --scope $rgID `
+    --location 'eastus' `
+    --mi-system-assigned `
+    --params '{"tagName":{"value":CostCenter}}'
+
+#crear acción de remediación para corregir tags en recursos creados antes de la ejecución de la política para heredar tags
+az policy remediation create `
+    --name 'Remediation-Env-Tag' `
+    --policy-assignment 'Inherit-Env-Tag' `
+    --resource-group az104-rg2
+
+#crear un storage account, este heredara el tag del grupo de recursos
+az storage account create `
+    --name 'teststorageacouttag' `
+    --resource-group 'az104-rg2' `
+    --location 'eastus' `
+    --sku 'Standard_LRS'
+
+##Configurar y probar los bloqueos de recursos
+#crear un bloqueo de eliminación al grupo de recursos
+az lock create --name rg-lock --lock-type CanNotDelete --resource-group az104-rg2
+
+#intentar eliminar el grupo de recursos para obtener el error
+az group delete --name az104-rg2 --yes
+
+#error obtenido
+#   (ScopeLocked) The scope '/subscriptions/<Tu_suscripción>/resourcegroups/az104-rg2' cannot perform delete operation because following scope(s) are locked: '/subscriptions/<Tu_suscripción>/resourceGroups/az104-rg2'. Please remove the lock and try again.
+#   Code: ScopeLocked
+
+
+##Limpiar recursos
+#quitar bloqueo
+az lock delete --name rg-lock --resource-group az104-rg2
+#quitar tarea de remediación
+az policy remediation delete `
+    --name 'Remediation-Env-Tag' `
+    --resource-group az104-rg2
+#eliminar política actual que hereda el tag
+az policy assignment delete --name 'Inherit-Env-Tag' --scope $rgID
