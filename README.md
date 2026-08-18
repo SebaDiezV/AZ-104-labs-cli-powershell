@@ -56,7 +56,7 @@ az-104-labs-cli-powershell/
 |-----|-----|------------|-------|
 | 01 - Entra ID Identities | ✅ | ✅ | |
 | 02a - Subscriptions & RBAC | ✅ | ✅ | |
-| 02b - Gobernanza via Azure | ⬜ | ⬜ | |
+| 02b - Gobernanza via Azure | ✅ | ✅ | |
 | 03 - ARM Templates | ⬜ | ⬜ | |
 | 04 - Virtual Networking | ⬜ | ⬜ | |
 | 05 - Conectividad Intersite | ⬜ | ⬜ | |

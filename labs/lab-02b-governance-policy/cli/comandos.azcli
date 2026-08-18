@@ -92,3 +92,9 @@ az policy remediation delete `
     --resource-group az104-rg2
 #eliminar política actual que hereda el tag
 az policy assignment delete --name 'Inherit-Env-Tag' --scope $rgID
+
+#eliminar Storage account
+az storage account delete --name teststorageacouttag --resource-group az104-rg2
+
+#eliminar Resource Group
+az group delete --name az104-rg2 --yes
