@@ -57,7 +57,7 @@ az-104-labs-cli-powershell/
 | 01 - Entra ID Identities | ✅ | ✅ | |
 | 02a - Subscriptions & RBAC | ✅ | ✅ | |
 | 02b - Gobernanza via Azure | ✅ | ✅ | |
-| 03 - ARM Templates | ⬜ | ⬜ | |
+| 03 - ARM Templates | ✅ | ✅ | Se Utiliza Bicep |
 | 04 - Virtual Networking | ⬜ | ⬜ | |
 | 05 - Conectividad Intersite | ⬜ | ⬜ | |
 | 06 - Network Traffic Manager | ⬜ | ⬜ | |

@@ -1,0 +1,15 @@
+##Conectando a Azure a través de CLI
+az login
+
+##Editar los archivos JSON de plantilla y parámetros según lo planteado en el ejercicio
+##Implementar plantillas en el grupo de recursos creados para el ejercicio
+#guardar rutas de archivos Template y Parameters para un mejor uso
+$CliTemplate = 'C:\<tu_ruta>\template.json'
+$CliParameters = 'C:\<tu_ruta>\parameters.json'
+az deployment group create --resource-group az104-rg3 --template-file $CliTemplate --parameters $CliParameters
+
+#confirmar que el disco se haya creado
+az disk list --resource-group az104-rg3 --output table
+
+#Implementar plantilla a través de Bicep
+az deployment group create --resource-group az104-rg3 --template-file ../lab-03-arm-templates/bicep/azuredeploydisk.bicep
