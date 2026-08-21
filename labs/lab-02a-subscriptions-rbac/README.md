@@ -7,10 +7,10 @@ Crear Management Group, asignar roles de RBAC a grupos, crear un rol de RBAC per
 Basado en [Lab 02 - Manage Subscriptions and RBAC](https://microsoftlearning.github.io/AZ-104-MicrosoftAzureAdministrator/Instructions/Labs/LAB_02a_Manage_Subscriptions_and_RBAC_Entra.html)
 
 ## Recursos creados
--Management Groups
--Grupos de Seguridad
--JSON para rol RBAC personalizado
--Rol RBAC personalizado
+- Management Groups
+- Grupos de Seguridad
+- JSON para rol RBAC personalizado
+- Rol RBAC personalizado
 
 ## Notas y aprendizaje
 Se realiza el laboratorio con ambas líneas de comandos, en esta ocasión, tanto en Azure CLI como en PowerShell fue mas directo realizar los comandos, aunque fue un poco confuso en PowerShell pasar del módulo Az a MgGraph, sin embargo, trabajando de manera estructurada no presenta mayor dificultad.

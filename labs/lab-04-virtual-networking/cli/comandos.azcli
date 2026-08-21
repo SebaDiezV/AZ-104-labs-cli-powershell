@@ -1,0 +1,120 @@
+##Conectando a Azure a través de CLI
+az login
+
+##Crear grupo de recursos
+az group create  --name az104-rg4 --location eastus
+
+##Crear VNet y sus subnets
+az network vnet create `
+    --resource-group az104-rg4 `
+    --name CoreServicesVnet `
+    --address-prefixes 10.20.0.0/16 `
+    --subnet-name DatabaseSubnet `
+    --subnet-prefixes 10.20.20.0/24
+
+#agregando la segunda VNet
+az network vnet subnet create `
+    --resource-group az104-rg4 `
+    --vnet-name CoreServicesVnet `
+    --name SharedServiceSubnet `
+    --address-prefixes 10.20.10.0/24
+
+##Descargar Template y Parameters de VNet desde portal, editarlos para crear la nueva VNet según laboratorio
+##Implementar Template de VNet
+#crear variables con Template y Parameters
+$CliVnetTemplate = 'C:\<tu_ruta>\template.json'
+$CliVnetParameters = 'C:\<tu_ruta>\parameters.json'
+
+#implementar VNet
+az deployment group create `
+    --resource-group az104-rg4 `
+    --template-file $CliVnetTemplate `
+    --parameters $CliVnetParameters
+
+##Crear y configurar la comunicación entre un Grupo de seguridad de aplicaciones y un Grupo de seguridad de red
+#crear Application Security Group (ASG)
+az network asg create `
+    --resource-group az104-rg4 `
+    --name asg-web `
+    --location eastus
+
+#crear Network Security Group (NSG)
+az network nsg create `
+    --resource-group az104-rg4 `
+    --name myNSGSecure `
+    --location eastus
+
+#asociar NSG a VNet CoreServicesVnet -SharedServiceSubnet
+az network vnet subnet update `
+    --resource-group az104-rg4 `
+    --vnet-name CoreServicesVnet `
+    --name SharedServiceSubnet `
+    --network-security-group myNSGSecure
+
+#configurar regla de seguridad Inbound en ASG
+az network nsg rule create `
+    --resource-group az104-rg4 `
+    --nsg-name myNSGSecure `
+    --name AllowASG `
+    --priority 100 `
+    --direction Inbound `
+    --access Allow `
+    --protocol Tcp `
+    --source-asg asg-web `
+    --destination-port-ranges 80 443
+
+#configurar regla NSG de salida que deniegue el acceso a Internet
+az network nsg rule create `
+    --resource-group az104-rg4 `
+    --nsg-name myNSGSecure `
+    --name DenyInternetOutbound `
+    --priority 4096 `
+    --direction Outbound `
+    --access Deny `
+    --protocol '*' `
+    --source-address-prefixes '*' `
+    --source-port-ranges '*' `
+    --destination-address-prefixes 'Internet' `
+    --destination-port-ranges '*'
+
+##Configurar las zonas DNS públicas y privadas de Azure
+#DNS público
+az network dns zone create `
+    --resource-group az104-rg4 `
+    --name az104test.cl
+
+#crear registro A
+az network dns record-set a add-record `
+    -g az104-rg4 `
+    -z az104test.cl `
+    -n www `
+    -a 10.1.1.4 `
+    --ttl 1
+
+#DNS privado
+az network private-dns zone create `
+    --resource-group az104-rg4 `
+    --name private.az104test.cl
+
+#configurar enlaces de red virtual
+#obtener id de VNet ManufacturingVnet
+$MVnetId = az network vnet show --resource-group az104-rg4 --name ManufacturingVnet --query id -o tsv
+
+az network private-dns link vnet create `
+    -g az104-rg4 `
+    -z private.az104test.cl `
+    -n Manufacturing-link `
+    -v $MVnetId `
+    --registration-enabled true
+
+#agregar registro DNS privado para cada VM que necesite configurar
+az network private-dns record-set a add-record `
+    -g az104-rg4 `
+    -z private.az104test.cl `
+    -n sensorvm `
+    -a 10.1.1.4 `
+#    --ttl 1
+
+##Limpiar recursos
+#eliminar Resource Group
+az group delete --name az104-rg4 --yes

@@ -7,11 +7,11 @@ Aprender a implementar planes de gobernanza,incluyendo directivas de Azure y eti
 Basado en [Lab02b - Manage Governance via Azure Policy](https://microsoftlearning.github.io/AZ-104-MicrosoftAzureAdministrator/Instructions/Labs/LAB_02b-Manage_Governance_via_Azure_Policy.html)
 
 ## Recursos creados
--Grupo de recursos
--Directiva de etiquetado
--Política de remediación
--Cuenta de almacenamiento
--Bloqueo de grupo de recursos
+- Grupo de recursos
+- Directiva de etiquetado
+- Política de remediación
+- Cuenta de almacenamiento
+- Bloqueo de grupo de recursos
 
 ## Notas y aprendizaje
 
