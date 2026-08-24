@@ -1,0 +1,157 @@
+##Conectando a Azure a través de CLI
+az login
+
+## Crear grupo de recursos
+az group create --name az104-rg5 --location eastus
+
+##Crear una máquina virtual y una red virtual para los servicios principales
+#crear una VNet con una subnet
+az network vnet create `
+    --resource-group az104-rg5 `
+    --name CoreServicesVnet `
+    --address-prefixes 10.0.0.0/16 `
+    --subnet-name Core `
+    --subnet-prefixes 10.0.0.0/24
+
+#crear Virtual Machine
+#antes de crear la vm, revisar los sku's de vm disponibles
+az vm list-skus --location eastus  --output table
+
+#revisar sku's disponibles de Windows Server
+az vm image list-skus --location eastus --publisher MicrosoftWindowsServer --offer WindowsServer --output table
+
+az vm create `
+    --resource-group az104-rg5 `
+    --name CoreServicesVM `
+    --image MicrosoftWindowsServer:windowsserver2022:2022-datacenter-g2:latest `
+    --size Standard_D2s_v7 `
+    --admin-user localadmin `
+    --admin-password '<tu_contraseña>' `
+    --security-type TrustedLaunch `
+    --location eastus `
+    --vnet-name 'CoreServicesVnet' `
+    --subnet 'Core'
+
+##Crear una máquina virtual en una red virtual diferente
+#crear VNet
+az network vnet create `
+    --resource-group az104-rg5 `
+    --name ManufacturingVnet `
+    --address-prefixes 172.16.0.0/16 `
+    --subnet-name Manufacturing `
+    --subnet-prefixes 172.16.0.0/24
+#crear VM
+az vm create `
+    --resource-group az104-rg5 `
+    --name ManufacturingVM `
+    --image MicrosoftWindowsServer:windowsserver2022:2022-datacenter-g2:latest `
+    --size Standard_D2s_v7 `
+    --admin-user localadmin `
+    --admin-password '<tu_contraseña>' `
+    --security-type TrustedLaunch `
+    --location eastus `
+    --vnet-name 'ManufacturingVnet' `
+    --subnet 'Manufacturing'
+
+##Utilice Network Watcher para probar la conexión entre máquinas virtuales
+#para tareas mas avanzadas que solo probar conectividad, se debe utilizar el portal
+#instalar extensión de Network Watcher en ambas VM
+az vm extension set `
+    --name NetworkWatcherAgentWindows `
+    --publisher Microsoft.Azure.NetworkWatcher `
+    --resource-group az104-rg5 `
+    --vm-name CoreServicesVM
+
+az vm extension set `
+    --name NetworkWatcherAgentWindows `
+    --publisher Microsoft.Azure.NetworkWatcher `
+    --resource-group az104-rg5 `
+    --vm-name ManufacturingVM
+
+az network watcher test-connectivity `
+    --resource-group az104-rg5 `
+    --source-resource CoreServicesVM `
+    --dest-resource ManufacturingVM `
+    --dest-port 3389 `
+    --protocol tcp
+#El resultado de la prueba de conectividad es la siguiente:
+#"probesFailed": 30,
+#"probesSent": 30
+
+##Configurar el emparejamiento de redes virtuales entre redes virtuales
+#emparejamiento de ManufacturingVnet a CoreServicesVnet
+az network vnet peering create `
+    --resource-group az104-rg5 `
+    --name ManufacturingVnet-to-CoreServicesVnet `
+    --vnet-name ManufacturingVnet `
+    --remote-vnet CoreServicesVnet `
+    --allow-vnet-access
+
+#emparejamiento de CoreServicesVnet aManufacturingVnet
+az network vnet peering create `
+    --resource-group az104-rg5 `
+    --name CoreServicesVnet-to-ManufacturingVnet `
+    --vnet-name CoreServicesVnet `
+    --remote-vnet ManufacturingVnet `
+    --allow-vnet-access
+
+#Volver a probar la conexión con Network Watcher
+#Resultado de la prueba
+#"maxLatencyInMs": 17,
+#"minLatencyInMs": 1,
+#"probesFailed": 0,
+#"probesSent": 66
+
+##Utilice Azure PowerShell para probar la conexión entre máquinas virtuales
+#obtener ip de VM CoreServicesVM
+$CoreVmIp = az vm list-ip-addresses --resource-group az104-rg5 --name CoreServicesVM --query '[].virtualMachine.network.privateIpAddresses' -o tsv
+
+#ejecutar comando PowerShell desde CoreServicesVM
+az vm run-command invoke `
+    --resource-group az104-rg5 `
+    --name CoreServicesVM `
+    --command-id RunPowerShellScript `
+    --scripts 'Enable-NetFirewallRule -DisplayGroup "Remote Desktop"'
+
+#ejecutar comando PowerShell desde ManufacturingVM
+az vm run-command invoke `
+    --resource-group az104-rg5 `
+    --name ManufacturingVM `
+    --command-id RunPowerShellScript `
+    --scripts "Test-NetConnection $CoreVMIp -port 3389"
+#dentro del resultado encontraras lo siguiente:
+#message": "ComputerName     : 10.0.0.4\nRemoteAddress    : 10.0.0.4\nRemotePort       : 3389\nInterfaceAlias   : Ethernet\nSourceAddress    : 172.16.0.4\nTcpTestSucceeded : True\n\n\n"
+
+##Crear una ruta personalizada
+#crear una nueva subnet en CoreServicesVnet
+az network vnet subnet create `
+    --resource-group az104-rg5 `
+    --vnet-name CoreServicesVnet `
+    --name perimeter `
+    --address-prefixes 10.0.1.0/24
+
+#crear la tabla de rutas
+az network route-table create `
+    --resource-group az104-rg5 `
+    --name rt-CoreServices `
+    --location eastus
+
+#agregar la ruta personalizada a la tabla
+az network route-table route create `
+    --resource-group az104-rg5 `
+    --route-table-name rt-CoreServices `
+    --name PerimetertoCore `
+    --address-prefix 10.0.0.0/16 `
+    --next-hop-type VirtualAppliance `
+    --next-hop-ip-address 10.0.1.7
+
+#asociar tabla de rutas a la subred
+az network vnet subnet update `
+    --resource-group az104-rg5 `
+    --vnet-name CoreServicesVnet `
+    --name perimeter `
+    --route-table rt-CoreServices
+
+##Limpiar recursos
+#eliminar Resource Group
+az group delete --name az104-rg5 --yes
