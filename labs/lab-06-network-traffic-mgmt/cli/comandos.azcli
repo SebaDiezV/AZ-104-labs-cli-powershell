@@ -1,0 +1,224 @@
+##Conectando a Azure a través de CLI
+az login
+
+#Crear grupo de recursos
+az group create --name az104-rg6 --location eastus
+
+##Utilizar una plantilla para aprovisionar una infraestructura
+#descargar Templates y Parameters de archivos de los laboratorios, editar el tamaño de VM's por alguno disponible
+#implementar Template
+#crear variables para Templates y Parameters
+$CliInfraTemplate = 'C:\<tu_ruta>\az104-06-vms-template.json'
+$CliInfraParameters = 'C:\<tu_ruta>\az104-06-vms-parameters.json'
+
+#agregar variable con contraseña para VM's
+$AZ104_VM_PASSWORD = '<tu_contraseña>'
+
+#implementar infraestructura
+#pasar variable de contraseña como parámetro aparte
+az deployment group create `
+    --resource-group 'az104-rg6' `
+    --template-file $CliInfraTemplate `
+    --parameters $CliInfraParameters `
+    --parameters adminPassword=$AZ104_VM_PASSWORD
+
+##Configurar un balanceador de carga de Azure
+#crear dirección ip publica
+az network public-ip create `
+    --resource-group az104-rg6 `
+    --name az104-lbip `
+    --sku Standard `
+    --zone 1 `
+    --location eastus
+
+#Crear el balanceador de carga
+az network lb create `
+    --resource-group az104-rg6 `
+    --name az104-lb `
+    --sku Standard `
+    --location eastus `
+    --public-ip-address az104-lbip `
+    --frontend-ip-name az104-fe `
+    --backend-pool-name az104-be
+
+#crear sondeo de estado (health probe)
+az network lb probe create `
+    --resource-group az104-rg6 `
+    --lb-name az104-lb `
+    --name az104-hp `
+    --protocol tcp `
+    --port 80
+
+#agregar la regal del balanceador de carga
+az network lb rule create `
+    --resource-group az104-rg6 `
+    --lb-name az104-lb `
+    --name az104-lbrule `
+    --protocol tcp `
+    --frontend-port 80 `
+    --backend-port 80 `
+    --frontend-ip-name az104-fe `
+    --backend-pool-name az104-be `
+    --probe-name az104-hp
+
+#agregar VM's a backend de balanceador de carga
+#obtener nombre de nic e ip config de las VM y dejarlas en variables
+$NicVm0 = (az vm nic list --resource-group az104-rg6 --vm-name az104-06-vm0 --query "[].id" -o tsv) -split '/' | Select-Object -Last 1
+$NicVm1 = (az vm nic list --resource-group az104-rg6 --vm-name az104-06-vm1 --query "[].id" -o tsv) -split '/' | Select-Object -Last 1
+$IpCNVm0 = az network nic ip-config list --resource-group az104-rg6 --nic-name az104-06-nic0 --query "[].name" --output tsv
+$IpCNVm1 = az network nic ip-config list --resource-group az104-rg6 --nic-name az104-06-nic0 --query "[].name" --output tsv
+
+#añadir VM's
+az network nic ip-config address-pool add `
+    --resource-group az104-rg6 `
+    --lb-name az104-lb `
+    --address-pool az104-be `
+    --ip-config-name $IpCNVm0 `
+    --nic-name $NicVm0
+
+az network nic ip-config address-pool add `
+    --resource-group az104-rg6 `
+    --lb-name az104-lb `
+    --address-pool az104-be `
+    --ip-config-name $IpCNVm1 `
+    --nic-name $NicVm1
+
+#obtener ip de balanceador de carga y pegarlo en un navegador para ver el mensaje de HelloWorld
+#az network public-ip show --resource-group az104-rg6 --name az104-lbip --query ipAddress --output tsv  
+
+##Configurar una puerta de enlace de aplicaciones de Azure
+#crear nueva subred para puerta de enlace de aplicaciones
+az network vnet subnet create `
+    --resource-group az104-rg6 `
+    --vnet-name az104-06-vnet1 `
+    --name subnet-appgw `
+    --address-prefixes 10.60.3.224/27
+
+#crear ip pública para puerta de enlace de aplicaciones
+az network public-ip create `
+    --resource-group az104-rg6 `
+    --name az104-gwip `
+    --sku Standard `
+    --zone 2 `
+    --location eastus
+
+#crear puerta de enlace de aplicaciones
+az network application-gateway create `
+    --resource-group az104-rg6 `
+    --location eastus `
+    --vnet-name az104-06-vnet1 `
+    --subnet subnet-appgw `
+    --name az104-appgw `
+    --sku Standard_v2 `
+    --capacity 2 `
+    --public-ip-address az104-gwip `
+    --frontend-port 80 `
+    --http-settings-port 80 `
+    --http-settings-protocol Http `
+    --priority 100
+
+#crear backend con VM's
+az network application-gateway address-pool create `
+    --gateway-name az104-appgw `
+    --resource-group az104-rg6 `
+    --name az104-appgwbe `
+    --servers 10.60.0.4 10.60.1.4
+
+#añadir backend de imágenes
+az network application-gateway address-pool create `
+    --gateway-name az104-appgw `
+    --resource-group az104-rg6 `
+    --name az104-imagebe `
+    --servers 10.60.0.4
+
+#añadir backend de video
+az network application-gateway address-pool create `
+    --gateway-name az104-appgw `
+    --resource-group az104-rg6 `
+    --name az104-videobe `
+    --servers 10.60.1.4
+
+#crear configuración http de backend
+az network application-gateway http-settings create `
+    --gateway-name az104-appgw `
+    --resource-group az104-rg6 `
+    --name az104-http `
+    --port 80 `
+    --protocol Http `
+    --cookie-based-affinity Disabled `
+    --timeout 20
+
+
+#por defecto, se crea un listener en el puerto http y una regla de enrutamiento
+#se procede a crear un mapa de rutas independiente y luego asociarlo a rule 1
+#crear mapa de rutas de backend images
+az network application-gateway url-path-map create `
+  --gateway-name az104-appgw `
+  --resource-group az104-rg6 `
+  --name az104-pathmap `
+  --default-address-pool az104-appgwbe `
+  --default-http-settings az104-http `
+  --paths "/images/*" `
+  --address-pool az104-imagebe `
+  --http-settings az104-http
+
+#actualizamos la ruta
+az network application-gateway rule update `
+  --gateway-name az104-appgw `
+  --resource-group az104-rg6 `
+  --name rule1 `
+  --rule-type PathBasedRouting `
+  --url-path-map az104-pathmap
+
+#agregar ruta para backend de videos
+az network application-gateway url-path-map rule create `
+  --gateway-name az104-appgw `
+  --resource-group az104-rg6 `
+  --path-map-name az104-pathmap `
+  --name az104-pathmap `
+  --paths "/video/*" `
+  --address-pool az104-videobe `
+  --http-settings az104-http
+
+#actualizar nuevamente
+az network application-gateway rule update `
+  --gateway-name az104-appgw `
+  --resource-group az104-rg6 `
+  --name rule1 `
+  --rule-type PathBasedRouting `
+  --url-path-map az104-pathmap
+
+#verificar estado del backend
+az network application-gateway show-backend-health `
+  --name az104-appgw `
+  --resource-group az104-rg6 `
+  --query "backendAddressPools[].backendHttpSettingsCollection[].servers[][{Address: address, Health: health}]" `
+  --output table
+#resultado
+#OrderedDict({'Address': '10.60.1.4', 'Health': 'Healthy'})
+#OrderedDict({'Address': '10.60.0.4', 'Health': 'Healthy'})
+#OrderedDict({'Address': '10.60.1.4', 'Health': 'Healthy'})
+
+#probar urls en navegador
+#obtener ip publica del frontend y probar en el navegador
+az network public-ip show `
+  --name az104-gwip `
+  --resource-group az104-rg6 `
+  --query ipAddress `
+  --output tsv
+
+#crear un mensaje que aparezca al ingresar a las rutas de la aplicación
+az vm run-command invoke `
+    --resource-group az104-rg6 `
+    --name az104-06-vm0 `
+    --command-id RunPowerShellScript `
+    --scripts "New-Item -Path 'C:\inetpub\wwwroot\images' -ItemType Directory -Force; Set-Content -Path 'C:\inetpub\wwwroot\images\index.html' -Value '<h1>Hello from IMAGES backend</h1>'"
+
+az vm run-command invoke `
+    --resource-group az104-rg6 `
+    --name az104-06-vm1 `
+    --command-id RunPowerShellScript `
+    --scripts "New-Item -Path 'C:\inetpub\wwwroot\video' -ItemType Directory -Force; Set-Content -Path 'C:\inetpub\wwwroot\video\index.html' -Value '<h1>Hello from VIDEO backend</h1>'"
+
+##Limpiar recursos
+az group delete --name az104-rg6 --yes
