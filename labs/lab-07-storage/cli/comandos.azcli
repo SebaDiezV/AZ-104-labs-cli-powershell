@@ -1,0 +1,159 @@
+##conectar con Azure a través de CLI
+az login
+
+##Crear grupo de recursos
+az group create --name az104-rg7 --location eastus
+
+##Registrar el proveedor de recursos (en caso de que aún no se haya realizado)
+az provider register --namespace Microsoft.Storage
+
+##Crear y configurar una cuenta de almacenamiento
+az storage account create `
+    --name storageaz104lab7 `
+    --resource-group az104-rg7 `
+    --location eastus `
+    --sku Standard_RAGRS `
+    --kind StorageV2 `
+    --min-tls-version TLS1_2 `
+    --allow-blob-public-access false
+
+#habilitar acceso Storage Account a la red pública
+az storage account update `
+    --name storageaz104lab7 `
+    --resource-group az104-rg7 `
+    --public-network-access Enabled
+
+#cambiar acción a bloquear explícito
+az storage account update `
+    --name storageaz104lab7 `
+    --resource-group az104-rg7 `
+    --default-action Deny
+
+#agregar Ip cliente permitido
+az storage account network-rule add `
+    --account-name storageaz104lab7 `
+    --resource-group az104-rg7 `
+    --ip-address <tu_ip>
+
+#crear regla de ciclo de vida
+#crear archivo json con configuración
+az storage account management-policy create `
+    --account-name storageaz104lab7 `
+    --resource-group az104-rg7 `
+    --policy "@policy_lcm.json"
+
+##Crear y configurar un almacenamiento seguro de blobs
+#crear Container
+az storage container create `
+    --name data `
+    --account-name storageaz104lab7
+
+#agregar política de retención basada en tiempo en Container
+az storage container immutability-policy create `
+    --resource-group az104-rg7 `
+    --account-name storageaz104lab7 `
+    --container-name data `
+    --period 180
+
+az storage account update `
+    --name storageaz104lab7 `
+    --resource-group az104-rg7 `
+    --allow-shared-key-access true
+
+#otorgar el rol de Colaborador de datos de blobs de almacenamiento a tu propia cuenta
+#obtener ID de usuario
+$myID = az ad signed-in-user show --query id --output tsv
+
+#obtener ID de storage account
+$saID = az storage account show --resource-group az104-rg7 --name storageaz104lab7 --query id --output tsv
+
+#asignar el rol Colaborador de datos de blobs
+az role assignment create `
+    --assignee $myID `
+    --role 'Storage Blob Data Contributor' `
+    --scope $saID
+
+#asignar el rol de Colaborador privilegiado de datos de archivo de almacenamiento
+az role assignment create `
+    --assignee $myID `
+    --role 'Storage File Data Privileged Contributor' `
+    --scope $saID
+
+#subir imagen a contenedor
+az storage blob upload `
+    --account-name storageaz104lab7 `
+    --container-name data `
+    --file "test_image.jpg" `
+    --name securitytest/test_image.jpg `
+    --type block `
+    --tier Hot `
+    --auth-mode login
+
+#obtener url del blob subido, probar en un navegador, es esperable que muestre error
+az storage blob url `
+    --account-name storageaz104lab7 `
+    --container-name data `
+    --name securitytest/test_image.jpg `
+    --output tsv
+
+#generar token sas para ver archivo
+az storage blob generate-sas `
+    --account-name storageaz104lab7 `
+    --container-name data `
+    --name securitytest/test_image.jpg `
+    --permissions r `
+    --expiry 2026-08-29T23:59:59Z `
+    --auth-mode login `
+    --as-user `
+    --output tsv `
+    --full-uri
+
+##Crear y configurar un almacenamiento de archivos de Azure
+#Transaction Optimized es valor por defecto
+az storage share create `
+    --account-name storageaz104lab7 `
+    --name share1
+
+#restringir el acceso a una cuenta de almacenamiento
+az network vnet create `
+    --resource-group az104-rg7 `
+    --name vnet1 `
+    --address-prefixes 10.0.0.0/16 
+    --subnet-name default `
+    --subnet-prefixes 10.0.0.0/24
+
+#habilitar Endpoint de VNet
+az network vnet subnet update `
+    --resource-group az104-rg7 `
+    --vnet-name vnet1 `
+    --name default `
+    --service-endpoints Microsoft.Storage
+
+#restringir el acceso de la cuenta de almacenamiento
+az storage account update `
+    --resource-group az104-rg7 `
+    --name storageaz104lab7 `
+    --default-action Deny
+
+#agregar regla para permitir trafico únicamente de la subnet
+az storage account network-rule add `
+    --resource-group az104-rg7 `
+    --account-name storageaz104lab7 `
+    --vnet-name vnet1 `
+    --subnet default
+
+#revisar las reglas existentes, debe aparecer tu red publica
+az storage account network-rule list `
+    --resource-group az104-rg7 `
+    --account-name storageaz104lab7 `
+    --query ipRules
+
+#Eliminar la ruta existente, con esto solo se puede acceder a través del service endpoint que se configuró en la VNet
+az storage account network-rule remove `
+    --resource-group az104-rg7 `
+    --account-name storageaz104lab7 `
+    --ip-address "<tu_ip>"
+
+##Limpiar recursos
+#eliminar Resource Group
+az group delete --name az104-rg7 --yes
