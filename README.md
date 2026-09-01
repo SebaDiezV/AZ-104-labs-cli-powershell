@@ -62,7 +62,7 @@ az-104-labs-cli-powershell/
 | 05 - Conectividad Intersite | ✅ | ✅ | |
 | 06 - Network Traffic Manager | ✅ | ✅ | |
 | 07 - Azure Storage | ✅ | ✅ | |
-| 08 - Virtual Machines | ⬜ | ⬜ | |
+| 08 - Virtual Machines | ✅ | ✅ |VMSS solo Azure CLI |
 | 09a - WebApps | ⬜ | ⬜ | |
 | 09b - Azure Container Instances | ⬜ | ⬜ | |
 | 09c - Container Apps | ⬜ | ⬜ | |

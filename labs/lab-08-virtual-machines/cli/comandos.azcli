@@ -1,0 +1,168 @@
+##Conectando a Azure a través de CLI
+az login
+
+##Crear grupo de recursos
+az group create --name az104-rg8 --location eastus
+
+#guardar contraseña para VMs en una variable
+$vmPass = <tu_password>
+
+##Implementar máquinas virtuales de Azure resistentes a zonas
+az vm create `
+    --resource-group az104-rg8 `
+    --name az104-vm1 `
+    --location eastus `
+    --image MicrosoftWindowsServer:windowsserver2022:2022-datacenter-g2:latest `
+    --size Standard_D2s_v7 `
+    --security-type TrustedLaunch `
+    --zone 1 `
+    --admin-user localadmin `
+    --admin-password $vmPass
+
+az vm create `
+    --resource-group az104-rg8 `
+    --name az104-vm2 `
+    --location eastus `
+    --image MicrosoftWindowsServer:windowsserver2022:2022-datacenter-g2:latest `
+    --size Standard_D2s_v7 `
+    --security-type TrustedLaunch `
+    --zone 2 `
+    --admin-user localadmin `
+    --admin-password $vmPass
+
+##Gestionar el escalado de computación y almacenamiento para máquinas virtuales
+#detener VM
+az vm stop --resource-group az104-rg8 --name az104-vm1
+
+#cambiar tamaño de VM
+az vm resize --resource-group az104-rg8 --name az104-vm1 --size Standard_D2ds_v7
+
+#crear nuevo disco de datos y agregarlo a vm detenida
+az vm disk attach `
+    --resource-group az104-rg8 `
+    --vm-name az104-vm1 `
+    --name vm-disk1 `
+    --size 32 `
+    --sku Standard_LRS `
+    --new
+
+##Crear y configurar conjuntos de escalado de máquinas virtuales de Azure
+
+#Si estas en una cuenta de prueba, debes eliminar los recursos creados, recomiendo eliminar
+#el grupo de recursos y volver a crearlo para los siguientes pasos
+
+
+#crear VNet para Scale Set
+az network vnet create `
+    --resource-group az104-rg8 `
+    --name vmss-vnet `
+    --address-prefixes 10.82.0.0/20 `
+    --subnet-name subnet0 `
+    --subnet-prefixes 10.82.0.0/24
+
+#crear nsg para la NIC de Scale Set
+az network nsg create `
+    --resource-group az104-rg8 `
+    --name vmss-nsg `
+    --location eastus
+
+#crear rule de nsg
+az network nsg rule create `
+    --resource-group az104-rg8 `
+    --nsg-name vmss-nsg `
+    --name allow-http `
+    --priority 1010 `
+    --direction Inbound `
+    --access Allow `
+    --protocol Tcp `
+    --source-address-prefixes '*' `
+    --source-port-ranges '*' `
+    --destination-port-ranges '80' `
+    --destination-address-prefixes '*'
+
+#crear Ip pública para Load Balancer
+az network public-ip create `
+    --resource-group az104-rg8 `
+    --name vmss1-lbip `
+    --sku Standard `
+    --zone 1 `
+    --location eastus
+
+#crear el balanceador de carga
+az network lb create `
+    --resource-group az104-rg8 `
+    --name vmss1-lb `
+    --sku Standard `
+    --location eastus `
+    --public-ip-address vmss1-lbip `
+    --frontend-ip-name vmss1-fe `
+    --backend-pool-name vmss1-be
+
+#crear sondeo de estado (health probe)
+az network lb probe create `
+    --resource-group az104-rg8 `
+    --lb-name vmss1-lb `
+    --name vmss1-hp `
+    --protocol tcp `
+    --port 80
+
+#agregar la regal del balanceador de carga
+az network lb rule create `
+    --resource-group az104-rg8 `
+    --lb-name vmss1-lb `
+    --name vmss1-lbrule `
+    --protocol tcp `
+    --frontend-port 80 `
+    --backend-port 80 `
+    --frontend-ip-name vmss1-fe `
+    --backend-pool-name vmss1-be `
+    --probe-name vmss1-hp
+
+#crear Scale Set
+az vmss create `
+    --resource-group az104-rg8 `
+    --name vmss1 `
+    --location eastus `
+    --zones 1 2 3 `
+    --orchestration-mode Uniform `
+    --image MicrosoftWindowsServer:windowsserver2022:2022-datacenter-g2:latest `
+    --vm-sku Standard_D2s_v7 `
+    --security-type TrustedLaunch `
+    --admin-user localadmin `
+    --admin-password $vmPass `
+    --vnet-name vmss-vnet `
+    --subnet subnet0 `
+    --nsg vmss-nsg `
+    --lb vmss1-lb `
+    --backend-pool vmss1-be `
+    --public-ip-address " "
+
+##Escalar conjuntos de escalado de máquinas virtuales de Azure
+#crear ajuste de autoescalado
+az monitor autoscale create `
+    --resource-group az104-rg8 `
+    --name autoscale-vmss1 `
+    --resource vmss1 `
+    --resource-type Microsoft.Compute/virtualMachineScaleSets `
+    --min-count 1 `
+    --max-count 10 `
+    --count 2
+
+#agregar regla de autuescalado para aumentar VMs en el Scale Set
+az monitor autoscale rule create `
+    --resource-group az104-rg8 `
+    --autoscale-name autoscale-vmss1 `
+    --condition "Percentage CPU > 70 avg 10m" `
+    --scale out 50% `
+    --cooldown 5
+
+#crear regla de autoescalado para disminuir las VMs
+az monitor autoscale rule create `
+    --resource-group az104-rg8 `
+    --autoscale-name autoscale-vmss1 `
+    --condition "Percentage CPU < 30 avg 10m" `
+    --scale in 1 `
+    --cooldown 5
+
+##Limpieza de recursos
+az group delete --name az104-rg8 --yes
