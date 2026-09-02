@@ -42,3 +42,6 @@ Get-AzContainerInstanceLog `
     -ContainerGroupName az104-cg1 `
     -ContainerName az104-c1 `
     -Tail 100 | Select-Object -ExpandProperty Content
+
+##Limpiar los recursos
+Remove-AzResourceGroup az104-rg9b
