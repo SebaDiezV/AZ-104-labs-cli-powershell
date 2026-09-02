@@ -65,7 +65,7 @@ az-104-labs-cli-powershell/
 | 08 - Virtual Machines | ✅ | ✅ |VMSS solo Azure CLI |
 | 09a - WebApps | ❌ | ❌ | No hay cuota disponible para realizar laboratorios |
 | 09b - Azure Container Instances | ✅ | ✅ | |
-| 09c - Container Apps | ⬜ | ⬜ | |
+| 09c - Container Apps | ✅ | ✅ | |
 | 10 - Data Protection | ⬜ | ⬜ | |
 | 11 - Monitoring | ⬜ | ⬜ | |
 
