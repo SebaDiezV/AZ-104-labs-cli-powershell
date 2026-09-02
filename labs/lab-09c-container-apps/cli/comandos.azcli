@@ -1,0 +1,35 @@
+az login
+
+az group create --name  az104-rg9c --location eastus
+
+##Crear y configurar una aplicación y un entorno de contenedores de Azure
+#instalar extensión de Azure Container Apps
+az extension add --name containerapp --upgrade
+
+#registrar el proveedor de espacio de nombres de Azure Container Apps
+az provider register --namespace Microsoft.App
+
+#registrar el proveedor del área de trabajo de log analytics
+az provider register --namespace Microsoft.OperationalInsights
+
+#crear entorno de container apps
+az containerapp env create `
+    --name my-environment `
+    --resource-group az104-rg9c `
+    --location eastus
+
+#crear una aplicación de contenedor de Azure
+az containerapp create `
+    --name my-app `
+    --resource-group az104-rg9c `
+    --environment my-environment `
+    --image mcr.microsoft.com/azuredocs/containerapps-helloworld:latest `
+    --target-port 80 `
+    --ingress external
+
+##Probar y verificar la implementación de la aplicación de contenedores de Azure
+az containerapp show --resource-group az104-rg9c --name my-app --query properties.configuration.ingress.fqdn
+#copiar la dirección FQDN y pegarla en el navegador para ver la página de inicio de Container Apps Hello World
+
+##Limpiar los recursos
+az group delete --resource-group az104-rg9c --yes

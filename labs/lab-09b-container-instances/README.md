@@ -4,7 +4,7 @@
 Implementar y desplegar Instancias de contenedores de Azure
 
 ## Fuente
-Basado en [09b: Implement Azure Container Instances](https://microsoftlearning.github.io/AZ-104-MicrosoftAzureAdministrator/Instructions/Labs/LAB_09b-Implement_Azure_Container_Instances.html)
+Basado en [Lab 09b: Implement Azure Container Instances](https://microsoftlearning.github.io/AZ-104-MicrosoftAzureAdministrator/Instructions/Labs/LAB_09b-Implement_Azure_Container_Instances.html)
 
 ## Recursos creados
 - Container Instance con imagen Docker
