@@ -63,8 +63,8 @@ az-104-labs-cli-powershell/
 | 06 - Network Traffic Manager | ✅ | ✅ | |
 | 07 - Azure Storage | ✅ | ✅ | |
 | 08 - Virtual Machines | ✅ | ✅ |VMSS solo Azure CLI |
-| 09a - WebApps | ⬜ | ⬜ | |
-| 09b - Azure Container Instances | ⬜ | ⬜ | |
+| 09a - WebApps | ❌ | ❌ | No hay cuota disponible para realizar laboratorios |
+| 09b - Azure Container Instances | ✅ | ✅ | |
 | 09c - Container Apps | ⬜ | ⬜ | |
 | 10 - Data Protection | ⬜ | ⬜ | |
 | 11 - Monitoring | ⬜ | ⬜ | |

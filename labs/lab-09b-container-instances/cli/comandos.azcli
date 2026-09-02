@@ -1,0 +1,29 @@
+##Conectar a Azure
+az login
+
+##crear grupo de recursos
+az group create --resource-group az104-rg9b --location eastus
+
+##Registrar el proveedor de recursos de contenedores
+az provider register --namespace Microsoft.ContainerInstance
+
+##Implementar una instancia de contenedor de Azure utilizando una imagen de Docker
+az container create `
+    --resource-group az104-rg9b `
+    --name az104-c1 `
+    --image mcr.microsoft.com/azuredocs/aci-helloworld:latest `
+    --dns-name-label az104-lab09-c1 `
+    --port 80 `
+    --os-type Linux `
+    --memory 1 `
+    --cpu 1
+
+##Probar y verificar la implementación de una instancia de contenedor de Azure
+az container show --resource-group az104-rg9b --name az104-c1 --query ipAddress.fqdn --output tsv
+#copiar la dirección FQDN y pegarla en el navegador para ver la página de inicio de ACI Hello World, referescar varias veces
+
+#Verificar los registros de la instancia de contenedor de Azure
+az container logs --resource-group az104-rg9b --name az104-c1
+
+##Limpiar los recursos
+az group delete --resource-group az104-rg9b --yes
